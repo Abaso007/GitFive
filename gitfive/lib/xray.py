@@ -34,16 +34,6 @@ def get_repo(token: str, target_username: str, target_id: int, repos_folder: Pat
         repo = Repo.clone_from(repo_url, repo_path, multi_options=["--filter=tree:0", "--no-checkout"])
     except git.exc.GitCommandError as e:
         error = e
-        if error.status == 128:
-            # If a file/folder name is weird, and your OS is Windows, it will produce "invalid path" error.
-            # See more => https://confluence.atlassian.com/bitbucketserverkb/error-invalid-path-during-git-clone-to-windows-client-1085186345.html
-            # You can disable this by doing `git config --global core.protectNTFS false`, but
-            # it will make you vulnerable to CVE-2019-1353.
-
-            # Repo example to git clone : https://github.com/novitae/Aet-s-Tools
-
-            pass # In fact, it fails to checkout but commits are cloned, so we don't care. 💅
-
         repo = Repo(repo_path)
 
     if not repo.refs:
@@ -57,27 +47,36 @@ def get_repo(token: str, target_username: str, target_id: int, repos_folder: Pat
         author = commit.author
         for entity in [committer, author]:
             # Getting all emails
-            if not entity.email in results["all_contribs"]:
+            if entity.email not in results["all_contribs"]:
                 results["all_contribs"][entity.email] = {
                                                         "names": {},
                                                         "handle": entity.email.split("@")[0],
                                                         "domain": entity.email.split("@")[-1]
                                                       }
-            if not entity.name in results["all_contribs"][entity.email]["names"]:
+            if (
+                entity.name
+                not in results["all_contribs"][entity.email]["names"]
+            ):
                 results["all_contribs"][entity.email]["names"][entity.name] = {"repos": set()}
             results["all_contribs"][entity.email]["names"][entity.name]["repos"].add(repo_id)
 
             # Getting usernames & names history
-            if entity.email.endswith("@users.noreply.github.com"):
-                if entity.email.count("+") == 1 and entity.email.startswith(f"{target_id}+"):
-                    username = entity.email.split("+")[1].split('@')[0]
+            if (
+                entity.email.endswith("@users.noreply.github.com")
+                and entity.email.count("+") == 1
+                and entity.email.startswith(f"{target_id}+")
+            ):
+                username = entity.email.split("+")[1].split('@')[0]
                     # if username.lower() != target_username.lower(): # => https://github.com/mxrch/GitFive/issues/16
-                    if not username in results["usernames_history"]:
-                        results["usernames_history"][username] = {"names": {}}
-                    if not entity.name in results["usernames_history"][username]["names"]:
-                        name = unicode_patch(entity.name)
-                        results["usernames_history"][username]["names"][name] = {"repos": set()}
-                    results["usernames_history"][username]["names"][name]["repos"].add(repo_id)
+                if username not in results["usernames_history"]:
+                    results["usernames_history"][username] = {"names": {}}
+                if (
+                    entity.name
+                    not in results["usernames_history"][username]["names"]
+                ):
+                    name = unicode_patch(entity.name)
+                    results["usernames_history"][username]["names"][name] = {"repos": set()}
+                results["usernames_history"][username]["names"][name]["repos"].add(repo_id)
 
         # Getting internal contributors and UPNs
         if len(commit.parents) > 1:
@@ -93,7 +92,12 @@ def get_repo(token: str, target_username: str, target_id: int, repos_folder: Pat
                                                         "handle": entity.email.split("@")[0],
                                                         "domain": entity.email.split("@")[-1]
                                                       }
-                    if not entity.name in results["internal_contribs"][entity.email]["names"]:
+                    if (
+                        entity.name
+                        not in results["internal_contribs"][entity.email][
+                            "names"
+                        ]
+                    ):
                         results["internal_contribs"][entity.email]["names"][entity.name] = {"repos": set()}
                     results["internal_contribs"][entity.email]["names"][entity.name]["repos"].add(repo_id)
 
@@ -117,12 +121,16 @@ def near_lookup(runner: GitfiveRunner):
             runner.target.all_contribs[email] = email_data
         for name in email_data["names"]:
             handle = email_data["handle"]
-            if any([is_diff_low(x, handle) for x in runner.target._possible_names]):
+            if any(
+                is_diff_low(x, handle) for x in runner.target._possible_names
+            ):
                 if handle not in runner.target.near_names:
                     new_variations = True
                     runner.target.near_names[handle] = {"related_data": {}}
                 runner.target.near_names[handle]["related_data"][email] = email_data
-            if any([is_diff_low(x, name) for x in runner.target._possible_names]):
+            if any(
+                is_diff_low(x, name) for x in runner.target._possible_names
+            ):
                 if name not in runner.target.near_names:
                     new_variations = True
                     runner.target.near_names[name] = {"related_data": {}}
@@ -148,12 +156,16 @@ def near_show(runner: GitfiveRunner):
                 found_exact = True
                 if name.lower() not in runner.target._possible_names:
                     continue
-                print(f"[+] Target's {'user' if not ' ' in name else ''}name exact match => 🙍 {sp(name)}")
+                print(
+                    f"[+] Target's {'user' if ' ' not in name else ''}name exact match => 🙍 {sp(name)}"
+                )
             elif step == "variations":
                 found_variation = True
                 if name.lower() in runner.target._possible_names:
                     continue
-                print(f"[+] Possible {'user' if not ' ' in name else ''}name variation => 🙍 {sp(name)}")
+                print(
+                    f"[+] Possible {'user' if ' ' not in name else ''}name variation => 🙍 {sp(name)}"
+                )
 
             runner.shown_near_names.add(entity_fingerprint)
 
@@ -166,7 +178,7 @@ def near_show(runner: GitfiveRunner):
                     _is_target = gh_username == runner.target.username
                     _checks_str += f" [{'italic light_green' if _is_target else 'bold indian_red'}](🐱 Github Account -> @{gh_username})"
                 if is_local_domain(email.split("@")[-1]):
-                    _checks_str += f" [bold violet](💻 Local identity)"
+                    _checks_str += " [bold violet](💻 Local identity)"
                 runner.rc.print(f"  📮 {sp(email)}{_checks_str}")
                 if email in runner.shown_emails:
                     runner.rc.print("    [Already shown]\n", style="bright_black")
@@ -177,7 +189,7 @@ def near_show(runner: GitfiveRunner):
                 print(f"  Name{'s' if len(email_data['names']) > 1 else ''} tied to this email :")
                 for name2, name_data2 in email_data["names"].items():
                     print(f"    🙍 {sp(name2)} (found in {len(name_data2['repos'])} repo{'s' if len(name_data2['repos']) > 1 else ''})")
-                
+
                 if not (already_shown and email == list(name_data["related_data"].keys())[-1]):
                     print()
 
@@ -190,7 +202,7 @@ async def analyze(runner: GitfiveRunner):
     cwd_path = Path().home()
     gitfive_folder = cwd_path / ".malfrats/gitfive"
     gitfive_folder.mkdir(parents=True, exist_ok=True)
-    
+
     target_user_folder: Path = gitfive_folder / ".tmp" / runner.target.username
     repos_folder = target_user_folder / "repos"
     repos_folder.mkdir(parents=True, exist_ok=True)
@@ -206,7 +218,7 @@ async def analyze(runner: GitfiveRunner):
                 # So we give the token, username and id args individually
                 future = executor.submit(get_repo, runner.creds.token, runner.target.username, runner.target.id, repos_folder, repo_details)
                 futures.append(future)
-        
+
         with alive_bar(total, receipt=False, dual_line=True, enrich_print=False, title="[XRAY] 🥷 Dumping and analyzing repos...") as bar:
             for future in concurrent.futures.as_completed(futures):
                 results = future.result()
@@ -279,7 +291,7 @@ async def analyze(runner: GitfiveRunner):
             print(f"[~] Current username -> 🙍 {username}")
         else:
             print(f"[+] Previous username -> 🙍 {sp(username)}")
-        print(f"Names history tied to this username :")
+        print("Names history tied to this username :")
         for name, name_data in username_data["names"].items():
             print(f"  🙍 {sp(name)} (found in {len(name_data['repos'])} repo{'s' if len(name_data['repos']) > 1 else ''})")
         print()
@@ -290,7 +302,7 @@ async def analyze(runner: GitfiveRunner):
     for email, email_data in runner.target.internal_contribs["no_github"].items():
         _checks_str = ""
         if is_local_domain(email.split("@")[-1]):
-            _checks_str += f" [bold violet](💻 Local identity)"
+            _checks_str += " [bold violet](💻 Local identity)"
         runner.rc.print(f"[+] Internal contributor email -> 📮 {sp(email)}{_checks_str}")
         if email in runner.shown_emails:
             runner.rc.print("    [Already shown]\n", style="bright_black")
@@ -322,9 +334,7 @@ async def analyze_ext_contribs(runner: GitfiveRunner):
 
     if total_count > 200:
         from math import ceil
-        middle_page = 10 # Max page ("Only the first 1000 search results are available")
-        if total_count <= 2000:
-            middle_page = ceil(ceil(total_count/100)/2)
+        middle_page = ceil(ceil(total_count/100)/2) if total_count <= 2000 else 10
         data3 = await runner.api.query(f"/search/commits?q=author:{runner.target.username.lower()} -user:{runner.target.username.lower()}&per_page=100&sort=author-date&order=asc&page={middle_page}")
         results.append(data3)
 
@@ -336,27 +346,33 @@ async def analyze_ext_contribs(runner: GitfiveRunner):
             name: str = item.get("commit", {}).get("author", {}).get("name")
             repo_name: str = item.get("repository", {}).get("full_name", {})
 
-            if not email in runner.target.ext_contribs:
+            if email not in runner.target.ext_contribs:
                 runner.target.ext_contribs[email] = {
                                                 "names": {},
                                                 "handle": email.split("@")[0],
                                                 "domain": email.split("@")[-1]
                                             }
-            if not name in runner.target.ext_contribs[email]["names"]:
+            if name not in runner.target.ext_contribs[email]["names"]:
                 runner.target.ext_contribs[email]["names"][name] = {"repos": set()}
             runner.target.ext_contribs[email]["names"][name]["repos"].add(repo_name)
 
             # Getting usernames history
-            if email.endswith("@users.noreply.github.com"):
-                if email.count("+") == 1 and email.startswith(f"{runner.target.id}+"):
-                    username: str = email.split("+")[1].split('@')[0]
-                    # if username.lower() != target_username.lower(): # => https://github.com/mxrch/GitFive/issues/16
-                    username = unicode_patch(username)
-                    name = unicode_patch(name)
-                    if not username in runner.target.usernames_history:
-                        runner.target._add_name(username) # Previous usernames are valid informations (unless target spoof it)
-                        runner.target.usernames_history[username] = {"names": {}}
-                    if not name in runner.target.usernames_history[username]["names"]:
-                        runner.target._add_name(name) # Previous names are valid informations (unless target spoof it)
-                        runner.target.usernames_history[username]["names"][name] = {"repos": set()}
-                    runner.target.usernames_history[username]["names"][name]["repos"].add(repo_name)
+            if (
+                email.endswith("@users.noreply.github.com")
+                and email.count("+") == 1
+                and email.startswith(f"{runner.target.id}+")
+            ):
+                username: str = email.split("+")[1].split('@')[0]
+                # if username.lower() != target_username.lower(): # => https://github.com/mxrch/GitFive/issues/16
+                username = unicode_patch(username)
+                name = unicode_patch(name)
+                if username not in runner.target.usernames_history:
+                    runner.target._add_name(username) # Previous usernames are valid informations (unless target spoof it)
+                    runner.target.usernames_history[username] = {"names": {}}
+                if (
+                    name
+                    not in runner.target.usernames_history[username]["names"]
+                ):
+                    runner.target._add_name(name) # Previous names are valid informations (unless target spoof it)
+                    runner.target.usernames_history[username]["names"][name] = {"repos": set()}
+                runner.target.usernames_history[username]["names"][name]["repos"].add(repo_name)

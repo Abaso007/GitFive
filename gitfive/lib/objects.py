@@ -55,14 +55,12 @@ class Credentials():
         )
         
     def load_creds(self):
-        creds = self.parse(self.creds_path)
-        if creds:
+        if creds := self.parse(self.creds_path):
             self.username = creds["username"]
             self.password = creds["password"]
             self.token = creds["token"]
 
-        session = self.parse(self.session_path) # Cookies
-        if session:
+        if session := self.parse(self.session_path):
             self.session = session
             self._as_client.cookies.update(self.session)
 
@@ -82,8 +80,7 @@ class Credentials():
         try:
             with open(path, "r", encoding="utf-8") as f:
                 raw = f.read()
-            data = json.loads(base64.b64decode(raw).decode())
-            return data
+            return json.loads(base64.b64decode(raw).decode())
         except Exception:
             return None
 
@@ -149,15 +146,14 @@ class Credentials():
         """
         tmprinter = TMPrinter()
 
-        if not force:
-            if self.are_creds_loaded():
-                print("[+] Credentials found !\n")
-            else:
-                print("[-] No saved credentials found\n")
-                self.prompt_creds()
-        else:
+        if force:
             self.prompt_creds()
 
+        elif self.are_creds_loaded():
+            print("[+] Credentials found !\n")
+        else:
+            print("[-] No saved credentials found\n")
+            self.prompt_creds()
         self.check_token()
 
         req = await self._as_client.get("https://github.com/login")

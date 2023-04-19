@@ -23,9 +23,7 @@ async def check_and_login(clean=False):
         print("[+] Creds are working !")
         choice = ""
         while choice.lower() not in ["y", "n"]:
-            choice = input("Do you want to re-login anyway ? (Y/n) : ")
-            if not choice: # default choice
-                choice = "y"
+            choice = input("Do you want to re-login anyway ? (Y/n) : ") or "y"
         if choice == "y":
             print()
             creds.__init__()

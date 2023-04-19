@@ -23,10 +23,7 @@ async def fetch_avatar(runner: GitfiveRunner, email: str, avatar_link: str, user
             }
         else:
             full_name = await github.fetch_profile_name(runner, username)
-            _name_str = ""
-            if full_name:
-                _name_str = f" [{full_name}]"
-
+            _name_str = f" [{full_name}]" if full_name else ""
             if is_target:
                 runner.rc.print(f"[+] [TARGET FOUND] 🐱 {email} -> @{username}{_name_str}", style="green bold")
             else:
